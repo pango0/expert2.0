@@ -12,6 +12,14 @@ from langchain_community.vectorstores.chroma import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.llms.ollama import Ollama
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="A script with mutually exclusive -q and -s flags")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-q", "--query", action="store_true", help="Ask questions")
+    group.add_argument("-s", "--summarize", action="store_true", help="Summarize data")
+    group.add_argument("-c", "--create_database", action="store_true", help="Create vector database")
+    return parser.parse_args()
+
 def timing_decorator(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -23,12 +31,6 @@ def timing_decorator(func):
         return result
     return wrapper
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="A script with -q and -c flags")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-q", "--query", action="store_true", help="Query question")
-    group.add_argument("-c", "--create_database", action="store_true", help="Create vector database")
-    return parser.parse_args()
 
 
 PROMPT_TEMPLATE = """
@@ -58,30 +60,38 @@ def query_rag(query_text: str, db_path: str, top):
     
 @timing_decorator
 def main():
-    create_database.create_database("data", "chunk_150_50", 150, 50)
-    create_database.create_database("data", "chunk_500_150", 500, 150) # 400 char
-    # summarize.summarize("data")
-    summary_database.create_database("summaries", "summary_db", 500, 150)
 
-    query = input("向專家發問:")
+    args = parse_arguments()
 
-    ret1 = query_rag(query, "chunk_150_50", 20)
-    # print("ret1:")
-    # print(ret1)
+    if args.query:
+        query = input("向專家發問:")
 
-    ret2 = query_rag(query, "chunk_500_150", 10)
-    # print("ret2:")
-    # print(ret2)
+        ret1 = query_rag(query, "chunk_150_50", 20)
+        ret2 = query_rag(query, "chunk_500_150", 10)
+        ret3 = query_rag(query, "summary_db", 10)
 
-    # ret = merge(ret1, ret2)
-    # print(ret)
+        print("Final:")
+        print(merge(merge(ret1, ret2), ret3))
+    elif args.summarize:
+        summarize.summarize("data")
+    elif args.create_database:
+        create_database.create_database("data", "chunk_150_50", 150, 50)
+        create_database.create_database("data", "chunk_500_150", 500, 150) # 400 char
+        summary_database.create_database("summaries", "summary_db", 500, 150)
+    else:
+        summarize.summarize("data")
+        create_database.create_database("data", "chunk_150_50", 150, 50)
+        create_database.create_database("data", "chunk_500_150", 500, 150) # 400 char
+        summary_database.create_database("summaries", "summary_db", 500, 150)
+        query = input("向專家發問:")
 
-    ret3 = query_rag(query, "summary_db", 10)
-    # print("ret3:")
-    # print(ret3)
+        ret1 = query_rag(query, "chunk_150_50", 20)
+        ret2 = query_rag(query, "chunk_500_150", 10)
+        ret3 = query_rag(query, "summary_db", 10)
 
-    print("Final:")
-    print(merge(merge(ret1, ret2), ret3))
+        print("Final:")
+        print(merge(merge(ret1, ret2), ret3))
+    
 
 
 if __name__ == "__main__":
